@@ -214,6 +214,22 @@ def unify(sentence: Sentence, unifier_dict: Dict[str, str]) -> Tuple[Sentence, U
     return sent, UnifStatus.SUCCESS
 
 
+'''
+[TARGET] Ancestor(Charley,Billy)
+[MATCH] ~Ancestor(Charley,z)|Ancestor(Liz,z)
+[RESULT] Ancestor(Liz,Billy)
+
+[TARGET] Ancestor(x,y)|~Parent(x,y)
+[MATCH] ~Ancestor(Charley,z)|Ancestor(Liz,z)
+[RESULT] Ancestor(Liz,z)|~Parent(Charley,y)
+
+
+[TARGET] ~Ancestor(Liz,Joe)
+[MATCH] Ancestor(Liz,z)|~Parent(Charley,y)
+[RESULT] ~Parent(Charley,y)
+'''
+
+
 def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]:
     unifier = {}  # type: Dict[str, str]
     predicate_matches = []  # type: List[Tuple[int, int]]
@@ -250,8 +266,12 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
             if const_mismatch:
                 break
 
-    if all_var_flag or const_mismatch:  # Failure
+    perfect_compliment = len(predicate_matches) == len(sent1.disjoint_literals)
+    imperfect_compliment = (all_var_flag and not perfect_compliment)
+
+    if imperfect_compliment or const_mismatch:  # Failure
         return None, False
+
 
     s1_copy = sent1.clone()
     s2_copy = sent2.clone()
@@ -382,6 +402,7 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
 
                             # Used in case we want to write results to file
                             MATCHES.append(match_str)
+                            print(match_str)
 
                             if not resultant_sentence:  # Great success!
                                 print(
@@ -396,13 +417,15 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
                             if not in_kb_flag:
                                 know_base.append(resultant_sentence)
                                 printk(know_base)
+                                # input("...")
                             # REVIEW Which works fastest?
-                            # t_index = 0
-                            # s_index = 0
+                            t_index = 0
+                            s_index = 0
+
                             breakout = True
-                            # know_base = sorted(
-                            # know_base, key=lambda s:
-                            # len(s.disjoint_literals))
+                            know_base = sorted(
+                                know_base, key=lambda s:
+                                len(s.disjoint_literals))
 
                             break
                 if breakout:
@@ -422,8 +445,10 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
     return False
 
 
-def write_matches(ind):
+def write_matches(ind=0):
     with open("matches%d.txt" % ind, "w") as f:
+        for k in k_base:
+            f.write(str(k) + "\n")
         f.write(str(len(MATCHES)) + "\n")
         for m in MATCHES:
             f.write(m)
@@ -431,9 +456,8 @@ def write_matches(ind):
 
 if __name__ == "__main__":
     CASES = "cases/"
-    MATCHES = []  # type: List[str]
     for i in range(1, 12):
-        if i == 2: # TODO Input currently doesn't work. Remove before submission!
+        if i != 2:  # TODO Inputs 2 & 11 currently don't work. Remove before submission!
             continue
         print("======= INPUT " + str(i) + " =========")
         queries, k_base = parse_input(CASES + "input" + str(i) + ".txt")
@@ -442,15 +466,21 @@ if __name__ == "__main__":
         results = []
         ind = 0
         # Try each query
-        for q in queries:
-            print(q)
-            printk(k_base)
-            if prove_by_resolution(k_base, q):
-                results.append("TRUE")
-            else:
-                results.append("FALSE")
-
-            ind += 1
+        try:
+            for q in queries:
+                MATCHES = []  # type: List[str]
+                print(q)
+                printk(k_base)
+                if prove_by_resolution(k_base, q):
+                    results.append("TRUE")
+                else:
+                    results.append("FALSE")
+                write_matches(ind+1)
+                ind += 1
+        except KeyboardInterrupt:
+            write_matches(ind)
+            print(results)
+            sys.exit()
 
         # Compare results to expected values
         with open(CASES + "output" + str(i) + ".txt", "r") as f:
@@ -459,7 +489,7 @@ if __name__ == "__main__":
                 if not a:
                     actual.remove(a)
             # print(actual)
-            assert(len(results) == len(actual)) # TODO Remove all asserts
+            assert(len(results) == len(actual))  # TODO Remove all asserts
             print("========== INPUT " + str(i) + " RESULTS ============")
 
             for j in range(len(results)):
