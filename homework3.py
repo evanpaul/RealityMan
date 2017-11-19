@@ -1,6 +1,13 @@
 import copy
 import sys
 from typing import *
+from enum import Enum
+
+
+class UnifStatus(Enum):
+    SUCCESS = 1
+    EMPTY = 2
+    INVALID = 3
 
 
 class Parameter:
@@ -14,6 +21,7 @@ class Parameter:
         elif param_string[0].isupper():  # Constant
             self.is_var = False
         else:
+            # TODO: Remove before submitting: assume variable?
             raise ValueError("Malformed parameter")
 
     def __repr__(self) -> str:
@@ -22,7 +30,6 @@ class Parameter:
 
 class Literal:
     def __init__(self, literal_string: str) -> None:
-        # REVIEW Does this ever need to be updated?
         self.parse_literal_string(literal_string)
 
     def negate(self):
@@ -41,9 +48,7 @@ class Literal:
 
     def parse_literal_string(self, literal_string: str):
         self.literal_string = literal_string
-        # print("~~~")
-        # print(literal_string)
-        # print("~~~")
+
         negation = literal_string[0] == "~"
         if negation:  # Chop off negation symbol
             literal_string = literal_string[1:]
@@ -104,12 +109,12 @@ class Sentence:
     def parse_sentence_string(self, sentence_string: str):
         self.sentence_string = sentence_string
         disjoint_literals = sentence_string.split("|")
-        # print(disjoint_literals)
 
         for lit in disjoint_literals:
             if lit:
                 self.disjoint_literals.append(Literal(lit.strip()))
-        self.disjoint_literals = sorted(self.disjoint_literals, key=lambda l:l.predicate)
+        self.disjoint_literals = sorted(
+            self.disjoint_literals, key=lambda l: l.predicate)
         self.update_sentence_string()
 
     def contains_only_constants(self) -> bool:
@@ -119,10 +124,7 @@ class Sentence:
         return True
 
     def __repr__(self) -> str:
-        string = "%s" % self.sentence_string
-        # for literal in self.disjoint_literals:
-        #     string += str(literal)
-        return string
+        return self.sentence_string
 
     def update_sentence_string(self) -> str:
         resultant_string = ""
@@ -183,24 +185,20 @@ def parse_input(fname: str) -> Tuple[List[Literal], List[Sentence]]:
 
     return parsed_queries, parsed_sentences
 
-from enum import Enum
-class UnifStatus(Enum):
-    SUCCESS = 0
-    EMPTY = 1
-    INVALID = 2
-
 
 def unify(sentence: Sentence, unifier_dict: Dict[str, str]) -> Tuple[Sentence, UnifStatus]:
     sent = sentence.clone()
+    # Typically occurs when sentence is one literal long, but happens whenever
+    # a sentence is fully complimented
     if not sent.disjoint_literals:
         return None, UnifStatus.EMPTY
-    # print("[UNIFIED]")
-    # print(unifier_dict)
+
     for literal in sent.disjoint_literals:
-        flag = True
         for i, p in enumerate(literal.parameters):
             if str(p) in unifier_dict:
                 for _ in literal.parameters:
+                    # Disallow resolving s.t. a predicate contains two
+                    # equivalent constants
                     if str(_) == unifier_dict[str(p)]:
                         # Invalid resolution
                         print("[INVALID]")
@@ -209,42 +207,14 @@ def unify(sentence: Sentence, unifier_dict: Dict[str, str]) -> Tuple[Sentence, U
                         print("[/]")
                         return None, UnifStatus.INVALID
 
-            # print(literal.parameters[i], "=>", unifier_dict[str(p)])
                 literal.parameters[i] = Parameter(unifier_dict[str(p)])
                 literal.update_lit_string()
-                sent.contains_constant = True
-                # print(literal)
+                sent.contains_constant = True  # Most likely redundant
     sent.update_sentence_string()
     return sent, UnifStatus.SUCCESS
 
-    '''
-
-[TARGET] ~D(x,y)|~H(y)
-[MATCH] ~Q(Joe)|H(John)
-[AFTER] ~Q(Joe)|~D(x,John)
-
-I think this is okay?
-    '''
-
-
-'''
-[TARGET] ~B(Joe,y)|~C(Joe,y)
-[MATCH] ~D(x,Joe)|C(x,Joe)
-[AFTER] ~D(x,Joe)|~B(Joe,y)
-
-[TARGET] D(John,Joe)
-[MATCH] ~D(x,Joe)|~B(Joe,y)
-[AFTER] ~B(Joe,y)
-
-not okay
-'''
-
 
 def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]:
-    # print("Resolving\n{}{}{}{}{}{}{}")
-    # print(sent1)
-    # print(sent2)
-    # print("{{{{{{}}}}}}")
     unifier = {}  # type: Dict[str, str]
     predicate_matches = []  # type: List[Tuple[int, int]]
 
@@ -252,17 +222,7 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
     all_var_flag = True
     const_mismatch = False
 
-    '''
-    all variables in both -> Fail
-    mixed:
-        const mismatch -> Fail
-        const match -> Pass
-    all consts:
-        const mismatch -> Fial
-        const match -> Pass
-
-    '''
-
+    # Go through each literal and find the ones are complimentary matches
     for i, lit1 in enumerate(sent1.disjoint_literals):
         for j, lit2 in enumerate(sent2.disjoint_literals):
             if lit1.predicate == lit2.predicate and lit1.negated != lit2.negated:
@@ -270,7 +230,7 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
 
                 assert(len(lit1.parameters) == len(lit2.parameters))
 
-                # REVIEW Set up unification of parameters
+                # Set up unification of parameters
                 for k in range(len(lit1.parameters)):
                     if lit1.parameters[k].is_var and not lit2.parameters[k].is_var:
                         all_var_flag = False
@@ -289,48 +249,28 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
                             break
             if const_mismatch:
                 break
-    # print("-after-")
-    # print(sent1)
-    # print(sent2)
-    # print(all_var_flag, const_mismatch)
+
     if all_var_flag or const_mismatch:  # Failure
         return None, False
-    # print('-clone-')
+
     s1_copy = sent1.clone()
     s2_copy = sent2.clone()
-    # print(s1_copy)
-    # print(s2_copy)
 
-    # print(predicate_matches)
-    # s1_backup = [] # type: List[Literal]
-    # s2_backup = [] # type: List[Literal]
+    # Remove complimentary matched predicates
     for index_tuple in predicate_matches:
-        # s1_backup.append(s1_copy.disjoint_literals[index_tuple[0]])
-        # s2_backup.append(s2_copy.disjoint_literals[index_tuple[1]])
         s1_copy.disjoint_literals[index_tuple[0]] = None
         s2_copy.disjoint_literals[index_tuple[1]] = None
     s1_copy.disjoint_literals = [x for x in s1_copy.disjoint_literals if x]
     s2_copy.disjoint_literals = [x for x in s2_copy.disjoint_literals if x]
 
-    # print(s1_copy.disjoint_literals)
-    # print(s2_copy.disjoint_literals)
-
-    # Remove literals and unify remaining
+    # Unify remaining literals
     s1_unified, s1_status = unify(s1_copy, unifier)
     s2_unified, s2_status = unify(s2_copy, unifier)
-    # print('-unified-')
-    # print(s1_unified, s1_status)
-    # print(s2_unified, s2_status)
-
-    # print('-contingent-')
-    # print(sent1)
-    # print(sent2)
-    # REVIEW
 
     if s1_status == UnifStatus.EMPTY and s2_status == UnifStatus.EMPTY:
-
         if not sent1.contains_only_constants() and not sent2.contains_only_constants():
-            print("OH BOY")
+            # REVIEW I have not seen this case occur yet
+            print("HEY, LISTEN!")
             print("-----")
             print(sent1)
             print(sent2)
@@ -339,23 +279,30 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
 
             return sent1, False
         else:
-            print("$$$$$$$")
+            # REVIEW This seems to happen only when we are about to find a
+            # contradiction
+            print("=======")
             print(sent1.disjoint_literals)
             print(sent2.disjoint_literals)
-            print("$$$$$$$")
+            print("=======")
             input("...")
 
     elif s1_status == UnifStatus.INVALID or s2_status == UnifStatus.INVALID:
-            print("Either invalid?")
-            print(sent1, sent1.contains_only_constants())
-            print(sent2, sent2.contains_only_constants())
-            print("--->")
-            print(s1_unified)
-            print(s2_unified)
-            return None, False
+        # REVIEW This seems to only happen when trying to resolve a predicate
+        # with more than one of the same constant
+        print("=== Either invalid? ===")
+        print(sent1, sent1.contains_only_constants())
+        print(sent2, sent2.contains_only_constants())
+        print("===>")
+        print(s1_unified)
+        print(s2_unified)
+        print("=======================")
+
+        return None, False
 
     s1_str = s2_str = ""
 
+    # Update strings
     if s1_unified:
         s1_str = s1_unified.update_sentence_string()
     if s2_unified:
@@ -375,29 +322,28 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
 
 
 def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
+    # Negate query, convert to sentence, and add it to knowledge base
     not_query = Sentence(query.copy().negate().update_lit_string())
     know_base = copy.deepcopy(k_base)
     know_base = [not_query] + know_base
-    # Does a rule exist in the KB that we can resolve with?
-    # print(len(KB), "sentences in the KB")
-    already_resolved = {}  # type: Dict[Tuple[str, str], bool]
 
+    tried_pairs = {}  # type: Dict[Tuple[str, str], bool]
     t_index = 0
     s_index = 1
 
-    while know_base:
+    while True:
+        # Maximum number of combinations we can possibly try
         saturated = len(know_base) * (len(know_base) - 1)
-        # print(s_index, t_index, len(already_resolved), saturated, len(know_base))
-        if len(already_resolved) % 2 != 0:
-            print(already_resolved)
-            sys.exit()
-        if len(already_resolved) >= saturated:
-            print("Wowzer!")
+        # print(s_index, t_index, len(tried_pairs), saturated, len(know_base))
+        if len(tried_pairs) % 2 != 0:  # This shouldn't occur! Pairs are added... well... in pairs
+            print(tried_pairs)
+            sys.exit()  # TODO Remove before submitting!
+        if len(tried_pairs) >= saturated:
+            print("Tried all combinations! Must be false")
             return False
         try_resolve = True
         resolved_flag = False
-        # print(s_index, t_index)
-        # print(s_index, loop_flag)
+
         target_sentence = know_base[t_index]
         current_sentence = know_base[s_index]
         # Can't unify variables, and we assume KB is already consistent
@@ -406,33 +352,26 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
         # Check if we've alraedy tried this pair
         if s_index != t_index:
             try:
-                if already_resolved[(str(current_sentence), str(target_sentence))] or already_resolved[(str(target_sentence), str(current_sentence))]:
+                # REVIEW Realistically we only need to check one of these since
+                # they should both have the same values
+                if tried_pairs[(str(current_sentence), str(target_sentence))] or tried_pairs[(str(target_sentence), str(current_sentence))]:
                     resolved_flag = True
-            except KeyError:
-                resolved_flag = False
-                already_resolved[(str(current_sentence),
-                                  str(target_sentence))] = True
-                already_resolved[(str(target_sentence),
-                                  str(current_sentence))] = True
-
+            except KeyError:  # Sloppy, but happens when a key is not in dict
+                tried_pairs[(str(current_sentence),
+                             str(target_sentence))] = True
+                tried_pairs[(str(target_sentence),
+                             str(current_sentence))] = True
 
         if no_const_flag or resolved_flag or s_index == t_index:
             try_resolve = False
 
         if try_resolve:
-            # print(s_index, t_index)
-            skip_count = 0
-
+            # Look for complimentary matching predicates
             for cur_lit in current_sentence.disjoint_literals:
                 breakout = False
                 for tar_lit in target_sentence.disjoint_literals:
-                    # TODO: Update target
                     if cur_lit.predicate == tar_lit.predicate and cur_lit.negated != tar_lit.negated:
-                        # print("Found match!")
-                        # print("[TARGET]", end=" ")
-                        # print(target_sentence)
-                        # print("[MATCH]", end=" ")
-                        # print(current_sentence)
+
                         resultant_sentence, status = unify_and_resolve(
                             current_sentence, target_sentence)
                         if status:
@@ -441,34 +380,29 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
                             r_str = "[RESULT] " + str(resultant_sentence)
                             match_str = t_str + "\n" + m_str + "\n" + r_str + "\n\n"
 
+                            # Used in case we want to write results to file
                             MATCHES.append(match_str)
 
-
                             if not resultant_sentence:  # Great success!
-                                # print("[!] True!")
-                                printk(know_base)
-                                print(current_sentence, target_sentence)
+                                print(
+                                    "[!] Contradiction found! Query is consistent with knowledge base.")
                                 return True
-                            # Update the knowledge base with our new, unified
-                            # sentence
+                            # Update the knowledge base with new sentence
                             in_kb_flag = False
                             for s in know_base:
                                 if str(s) == str(resultant_sentence):
                                     in_kb_flag = True
-
+                            # Avoid adding duplicates
                             if not in_kb_flag:
                                 know_base.append(resultant_sentence)
                                 printk(know_base)
-                                # input("..")
-                                # already_resolved.append((s_index, t_index))
-
-                            # know_base[s_index] = resultant_sentence
-                            # del know_base[t_index]
-                            # t_index = 0  # len(know_base) - 1
+                            # REVIEW Which works fastest?
+                            # t_index = 0
                             # s_index = 0
                             breakout = True
                             # know_base = sorted(
-                            #     know_base, key=lambda s: len(s.disjoint_literals))
+                            # know_base, key=lambda s:
+                            # len(s.disjoint_literals))
 
                             break
                 if breakout:
@@ -478,10 +412,6 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
 
         s_index += 1
 
-        if s_index == t_index:
-            s_index += 1
-
-        # print(s_index, t_index, len(KB))
         if s_index >= len(know_base):
             s_index = 0
             t_index += 1
@@ -489,32 +419,29 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
         if t_index >= len(know_base):
             t_index = 0
 
-            # printk(know_base)
-            # print("[!] The query is false!")
-            # return False
-
-    print("[!] What did you do...")
-    print(know_base)
-    print(bool(know_base))
-    return True
+    return False
 
 
-''' What do I do about this
-[TARGET] ~R(x) | H(x)
-[MATCH] ~D(x,y) | ~H(y)
-[AFTER]~D(x,y)|~R(x)
-'''
+def write_matches(ind):
+    with open("matches%d.txt" % ind, "w") as f:
+        f.write(str(len(MATCHES)) + "\n")
+        for m in MATCHES:
+            f.write(m)
 
 
 if __name__ == "__main__":
     CASES = "cases/"
-    MATCHES = [] # type: List[str]
-    for i in range(1, 2):
+    MATCHES = []  # type: List[str]
+    for i in range(1, 12):
+        if i == 2: # TODO Input currently doesn't work. Remove before submission!
+            continue
         print("======= INPUT " + str(i) + " =========")
         queries, k_base = parse_input(CASES + "input" + str(i) + ".txt")
         print("[!] %d queries and %d sentences" % (len(queries), len(k_base)))
+
         results = []
         ind = 0
+        # Try each query
         for q in queries:
             print(q)
             printk(k_base)
@@ -523,15 +450,8 @@ if __name__ == "__main__":
             else:
                 results.append("FALSE")
 
-
-            # with open("matches%d.txt"%ind, "w") as f:
-            #     f.write(str(len(MATCHES)) + "\n")
-            #     for m in MATCHES:
-            #         f.write(m)
             ind += 1
 
-            # sys.exit()
-            # sys.exit()
         # Compare results to expected values
         with open(CASES + "output" + str(i) + ".txt", "r") as f:
             actual = f.read().split('\n')
@@ -539,11 +459,13 @@ if __name__ == "__main__":
                 if not a:
                     actual.remove(a)
             # print(actual)
-            assert(len(results) == len(actual))
+            assert(len(results) == len(actual)) # TODO Remove all asserts
+            print("========== INPUT " + str(i) + " RESULTS ============")
 
             for j in range(len(results)):
                 if actual[j] == results[j]:
                     print(":)", end="")
                 else:
                     print(":(", end="")
-                print("\tActual:", actual[j], "Result:", results[j])
+                print("\tActual:", actual[j], "\tResult:", results[j])
+        input("...")
