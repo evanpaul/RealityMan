@@ -2,6 +2,7 @@ import copy
 import sys
 from typing import *
 from enum import Enum
+from graph import ResolutionGraph
 
 
 class UnifStatus(Enum):
@@ -257,6 +258,8 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
                         unifier[str(lit2.parameters[k])] = str(
                             lit1.parameters[k])
                     elif lit1.parameters[k].is_var and lit2.parameters[k].is_var:
+                        # REVIEW Alias: doesn't seem like any additional action
+                        # is required?
                         pass
                     else:  # both are constants
                         all_var_flag = False
@@ -271,7 +274,6 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
 
     if imperfect_compliment or const_mismatch:  # Failure
         return None, False
-
 
     s1_copy = sent1.clone()
     s2_copy = sent2.clone()
@@ -290,12 +292,11 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
     if s1_status == UnifStatus.EMPTY and s2_status == UnifStatus.EMPTY:
         if not sent1.contains_only_constants() and not sent2.contains_only_constants():
             # REVIEW I have not seen this case occur yet
-            print("HEY, LISTEN!")
-            print("-----")
+            print("---!---")
             print(sent1)
             print(sent2)
-            print("-----")
-            input("...")
+            print("---!---")
+            input("!!!")
 
             return sent1, False
         else:
@@ -305,7 +306,7 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
             print(sent1.disjoint_literals)
             print(sent2.disjoint_literals)
             print("=======")
-            input("...")
+            # input("...")
 
     elif s1_status == UnifStatus.INVALID or s2_status == UnifStatus.INVALID:
         # REVIEW This seems to only happen when trying to resolve a predicate
@@ -343,6 +344,7 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
 
 def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
     # Negate query, convert to sentence, and add it to knowledge base
+    res_graph = ResolutionGraph()
     not_query = Sentence(query.copy().negate().update_lit_string())
     know_base = copy.deepcopy(k_base)
     know_base = [not_query] + know_base
@@ -359,6 +361,7 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
             print(tried_pairs)
             sys.exit()  # TODO Remove before submitting!
         if len(tried_pairs) >= saturated:
+            res_graph.view()
             print("Tried all combinations! Must be false")
             return False
         try_resolve = True
@@ -407,6 +410,9 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
                             if not resultant_sentence:  # Great success!
                                 print(
                                     "[!] Contradiction found! Query is consistent with knowledge base.")
+                                res_graph.add(
+                                    target_sentence, current_sentence, resultant_sentence)
+                                res_graph.view()
                                 return True
                             # Update the knowledge base with new sentence
                             in_kb_flag = False
@@ -415,6 +421,8 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
                                     in_kb_flag = True
                             # Avoid adding duplicates
                             if not in_kb_flag:
+                                res_graph.add(
+                                    target_sentence, current_sentence, resultant_sentence)
                                 know_base.append(resultant_sentence)
                                 printk(know_base)
                                 # input("...")
@@ -446,7 +454,7 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
 
 
 def write_matches(ind=0):
-    with open("matches%d.txt" % ind, "w") as f:
+    with open("match_logs/matches%d_%d.txt" % (FILE_INDEX, ind), "w") as f:
         for k in k_base:
             f.write(str(k) + "\n")
         f.write(str(len(MATCHES)) + "\n")
@@ -456,11 +464,12 @@ def write_matches(ind=0):
 
 if __name__ == "__main__":
     CASES = "cases/"
-    for i in range(1, 12):
-        if i != 2:  # TODO Inputs 2 & 11 currently don't work. Remove before submission!
-            continue
-        print("======= INPUT " + str(i) + " =========")
-        queries, k_base = parse_input(CASES + "input" + str(i) + ".txt")
+    for FILE_INDEX in range(1, 12):
+        # if i != 2:  # TODO Input 2 currently doesn't work. Remove before submission!
+        #     continue
+        print("======= INPUT " + str(FILE_INDEX) + " =========")
+        queries, k_base = parse_input(
+            CASES + "input" + str(FILE_INDEX) + ".txt")
         print("[!] %d queries and %d sentences" % (len(queries), len(k_base)))
 
         results = []
@@ -475,7 +484,7 @@ if __name__ == "__main__":
                     results.append("TRUE")
                 else:
                     results.append("FALSE")
-                write_matches(ind+1)
+                write_matches(ind + 1)
                 ind += 1
         except KeyboardInterrupt:
             write_matches(ind)
@@ -483,14 +492,13 @@ if __name__ == "__main__":
             sys.exit()
 
         # Compare results to expected values
-        with open(CASES + "output" + str(i) + ".txt", "r") as f:
+        with open(CASES + "output" + str(FILE_INDEX) + ".txt", "r") as f:
             actual = f.read().split('\n')
             for a in actual:
                 if not a:
                     actual.remove(a)
-            # print(actual)
             assert(len(results) == len(actual))  # TODO Remove all asserts
-            print("========== INPUT " + str(i) + " RESULTS ============")
+            print("========== INPUT " + str(FILE_INDEX) + " RESULTS ============")
 
             for j in range(len(results)):
                 if actual[j] == results[j]:

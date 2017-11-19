@@ -1,0 +1,7 @@
+// Resolution Graph
+digraph {
+	"~Offspring(Jojo,Jojo,Jojo,Jojo,Jojo,Jojo,Jojo,Jojo)" [color=blue shape=doublecircle]
+	"{}" [color=red shape=star]
+	"~Offspring(Jojo,Jojo,Jojo,Jojo,Jojo,Jojo,Jojo,Jojo)" -> "{}"
+	"Offspring(a,b,c,d,e,f,g,h)" -> "{}"
+}

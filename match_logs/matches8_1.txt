@@ -1,0 +1,13 @@
+~A(x)|B(Ada)
+A(Umbrella)
+C(x,Jill)|D(x)
+~C(x,Jill)
+2
+[TARGET] ~B(Ada)
+[MATCH] ~A(x)|B(Ada)
+[RESULT] ~A(x)
+
+[TARGET] A(Umbrella)
+[MATCH] ~A(x)
+[RESULT] None
+

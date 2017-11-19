@@ -1,0 +1,7 @@
+// Resolution Graph
+digraph {
+	"~A(John)" [color=blue shape=doublecircle]
+	"~B(John)"
+	"~A(John)" -> "~B(John)"
+	"A(x)|~B(x)" -> "~B(John)"
+}
