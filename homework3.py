@@ -3,7 +3,166 @@ import sys
 from typing import *
 
 
-def parse_input(fname):
+class Parameter:
+    def __init__(self, param_string: str) -> None:
+        self.parse_param(param_string)
+
+    def parse_param(self, param_string: str):
+        self.param_string = param_string
+        if len(param_string) == 1 and param_string.islower():  # Variable
+            self.is_var = True
+        elif param_string[0].isupper():  # Constant
+            self.is_var = False
+        else:
+            raise ValueError("Malformed parameter")
+
+    def __repr__(self) -> str:
+        return self.param_string
+
+
+class Literal:
+    def __init__(self, literal_string: str) -> None:
+        # REVIEW Does this ever need to be updated?
+        self.parse_literal_string(literal_string)
+
+    def negate(self):
+        self.negated = not self.negated
+        self.update_lit_string()
+        return self
+
+    def copy(self):
+        return copy.deepcopy(self)
+
+    def contains_only_constants(self) -> bool:
+        for p in self.parameters:
+            if p.is_var:
+                return False
+        return True
+
+    def parse_literal_string(self, literal_string: str):
+        self.literal_string = literal_string
+        # print("~~~")
+        # print(literal_string)
+        # print("~~~")
+        negation = literal_string[0] == "~"
+        if negation:  # Chop off negation symbol
+            literal_string = literal_string[1:]
+
+        parameters = []  # type: List[Parameter]
+        for index, char in enumerate(literal_string):
+            if char == "(":  # End of predicate name
+                predicate = literal_string[:index]
+                param_start_i = index + 1
+            elif char == ")":  # End of parameter name
+                param = literal_string[param_start_i:index]
+                parameters.append(Parameter(param))
+            elif char == ",":  # New parameter
+                param = literal_string[param_start_i:index]
+                param_start_i = index + 1
+                parameters.append(Parameter(param))
+
+        self.negated = negation
+        self.predicate = predicate
+        self.parameters = parameters
+
+    def update_lit_string(self) -> str:
+        result = ""
+        if self.negated:
+            result += "~"
+        result += self.predicate + "("
+        for i, p in enumerate(self.parameters):
+            result += str(p)
+            if i != len(self.parameters) - 1:
+                result += ","
+        result += ")"
+
+        self.literal_string = result
+
+        return self.literal_string
+
+    def __repr__(self) -> str:
+        param_string = ""
+        for i, p in enumerate(self.parameters):
+            if i == len(self.parameters) - 1:
+                param_string += str(p)
+            else:
+                param_string += str(p) + ", "
+        string = "%s\n[Negated]\t%r\n[Predicate]\t%s\n[Parameters]\t%s\n" % (
+            self.literal_string, self.negated, self.predicate, param_string)
+        return string
+
+
+class Sentence:
+    def __init__(self, sentence_string: str) -> None:
+        self.disjoint_literals = []  # type: List[Literal]
+        self.contains_constant = False
+        self.parse_sentence_string(sentence_string)
+
+    def clone(self):
+        return Sentence(self.update_sentence_string())
+
+    def parse_sentence_string(self, sentence_string: str):
+        self.sentence_string = sentence_string
+        disjoint_literals = sentence_string.split("|")
+        # print(disjoint_literals)
+
+        for lit in disjoint_literals:
+            if lit:
+                self.disjoint_literals.append(Literal(lit.strip()))
+        self.disjoint_literals = sorted(self.disjoint_literals, key=lambda l:l.predicate)
+        self.update_sentence_string()
+
+    def contains_only_constants(self) -> bool:
+        for l in self.disjoint_literals:
+            if not l.contains_only_constants():
+                return False
+        return True
+
+    def __repr__(self) -> str:
+        string = "%s" % self.sentence_string
+        # for literal in self.disjoint_literals:
+        #     string += str(literal)
+        return string
+
+    def update_sentence_string(self) -> str:
+        resultant_string = ""
+        if self.disjoint_literals:
+            for i, lit in enumerate(self.disjoint_literals):
+                if lit.negated:
+                    resultant_string += "~"
+                resultant_string += lit.predicate + "("
+
+                for j, p in enumerate(lit.parameters):
+                    if not p.is_var:
+                        self.contains_constant = True
+
+                    resultant_string += str(p)
+
+                    if j != len(lit.parameters) - 1:
+                        resultant_string += ","
+
+                resultant_string += ")"
+                if i != len(self.disjoint_literals) - 1:
+                    resultant_string += "|"
+        self.sentence_string = resultant_string
+        return resultant_string
+
+    def to_literal(self) -> Literal:
+        assert len(self.disjoint_literals) == 1
+
+        return self.disjoint_literals[0]
+
+
+def printk(kb: List[Sentence]):
+    print("=======KB=======")
+    i = 0
+    for s in kb:
+        print(str(i) + ") " + str(s))
+        i += 1
+    print("===============")
+
+
+def parse_input(fname: str) -> Tuple[List[Literal], List[Sentence]]:
     with open(fname, "r") as f:
         lines = f.read().split("\n")
 
@@ -24,270 +183,293 @@ def parse_input(fname):
 
     return parsed_queries, parsed_sentences
 
-
-class Parameter:
-    def __init__(self, param_string):
-        self.parse_param(param_string)
-
-    def parse_param(self, param_string):
-        self.param_string = param_string
-        if len(param_string) == 1 and param_string.islower():  # Variable
-            self.is_var = True
-        elif param_string[0].isupper():  # Constant
-            self.is_var = False
-        else:
-            raise ValueError("Malformed parameter")
-
-    def __repr__(self):
-        return self.param_string
+from enum import Enum
+class UnifStatus(Enum):
+    SUCCESS = 0
+    EMPTY = 1
+    INVALID = 2
 
 
-class Literal:
-    def __init__(self, literal_string):
-        # REVIEW Does this ever need to be updated?
-        self.parse_literal_string(literal_string)
-
-    def negate(self):
-        self.negation = not self.negated
-        self.update_lit_string()
-        return self
-
-    def copy(self):
-        return copy.deepcopy(self)
-
-    def parse_literal_string(self, literal_string):
-        self.literal_string = literal_string
-
-        negation = literal_string[0] == "~"
-        if negation:  # Chop off negation symbol
-            literal_string = literal_string[1:]
-
-        # TODO Change this to "parameters"
-        # Make a class that holds values and can either be a constant or var
-        parameters = []
-        for index, char in enumerate(literal_string):
-            if char == "(":  # End of predicate name
-                predicate = literal_string[:index]
-                param_start_i = index + 1
-            elif char == ")":  # End of parameter name
-                param = literal_string[param_start_i:index]
-                parameters.append(Parameter(param))
-            elif char == ",":  # New parameter
-                param = literal_string[param_start_i:index]
-                param_start_i = index + 1
-                parameters.append(Parameter(param))
-
-        self.negated = negation
-        self.predicate = predicate
-        self.parameters = parameters
-
-    def update_lit_string(self):
-        result = ""
-        if self.negated:
-            result += "~"
-        result += self.predicate + "("
-        for i, p in enumerate(self.parameters):
-            result += str(p)
-            if i != len(self.parameters) - 1:
-                result += ","
-        result += ")"
-
-        self.literal_string = result
-
-        return self.literal_string
-
-    def __repr__(self):
-        param_string = ""
-        for i, p in enumerate(self.parameters):
-            if i == len(self.parameters) - 1:
-                param_string += str(p)
-            else:
-                param_string += str(p) + ", "
-        string = "%s\n[Negated]\t%r\n[Predicate]\t%s\n[Parameters]\t%s\n" % (
-            self.literal_string, self.negated, self.predicate, param_string)
-        return string
-
-
-class Sentence:
-    def __init__(self, sentence_string):
-        self.disjoint_literals = []
-        self.contains_constant = False
-        self.parse_sentence_string(sentence_string)
-
-    def parse_sentence_string(self, sentence_string):
-        self.sentence_string = sentence_string
-        disjoint_literals = sentence_string.split("|")
-
-        for lit in disjoint_literals:
-            self.disjoint_literals.append(Literal(lit.strip()))
-        self.update_sentence_string()
-
-    def __repr__(self):
-        string = "%s" % self.sentence_string
-        # for literal in self.disjoint_literals:
-        #     string += str(literal)
-        return string
-
-    def update_sentence_string(self):
-        resultant_string = ""
-        for i, lit in enumerate(self.disjoint_literals):
-            if lit.negated:
-                resultant_string += "~"
-            resultant_string += lit.predicate + "("
-
-            for j, p in enumerate(lit.parameters):
-                if not p.is_var:
-                    self.contains_constant = True
-
-                resultant_string += str(p)
-
-                if j != len(lit.parameters) - 1:
-                    resultant_string += ","
-
-            resultant_string += ")"
-            if i != len(self.disjoint_literals) - 1:
-                resultant_string += "|"
-        self.sentence_string = resultant_string
-        return resultant_string
-
-    def to_literal(self):
-        assert len(self.disjoint_literals) == 1
-
-        return self.disjoint_literals[0]
-
-
-# REVIEW Don't need to return, right?
-def unify(sentence, unifier_dict):
-    if not sentence.disjoint_literals:
-        return None
+def unify(sentence: Sentence, unifier_dict: Dict[str, str]) -> Tuple[Sentence, UnifStatus]:
+    sent = sentence.clone()
+    if not sent.disjoint_literals:
+        return None, UnifStatus.EMPTY
     # print("[UNIFIED]")
     # print(unifier_dict)
-    for literal in sentence.disjoint_literals:
+    for literal in sent.disjoint_literals:
+        flag = True
         for i, p in enumerate(literal.parameters):
             if str(p) in unifier_dict:
-                # print(literal.parameters[i], "=>", unifier_dict[str(p)])
-                literal.parameters[i] = unifier_dict[str(p)]
+                for _ in literal.parameters:
+                    if str(_) == unifier_dict[str(p)]:
+                        # Invalid resolution
+                        print("[INVALID]")
+                        print(literal)
+                        print(unifier_dict)
+                        print("[/]")
+                        return None, UnifStatus.INVALID
+
+            # print(literal.parameters[i], "=>", unifier_dict[str(p)])
+                literal.parameters[i] = Parameter(unifier_dict[str(p)])
                 literal.update_lit_string()
-                sentence.contains_constant = True
+                sent.contains_constant = True
                 # print(literal)
-    sentence.update_sentence_string()
-    return sentence
+    sent.update_sentence_string()
+    return sent, UnifStatus.SUCCESS
+
+    '''
+
+[TARGET] ~D(x,y)|~H(y)
+[MATCH] ~Q(Joe)|H(John)
+[AFTER] ~Q(Joe)|~D(x,John)
+
+I think this is okay?
+    '''
 
 
-def unify_and_resolve(sent1, sent2):
-    unifier = {}
-    matches = []
+'''
+[TARGET] ~B(Joe,y)|~C(Joe,y)
+[MATCH] ~D(x,Joe)|C(x,Joe)
+[AFTER] ~D(x,Joe)|~B(Joe,y)
+
+[TARGET] D(John,Joe)
+[MATCH] ~D(x,Joe)|~B(Joe,y)
+[AFTER] ~B(Joe,y)
+
+not okay
+'''
+
+
+def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]:
+    # print("Resolving\n{}{}{}{}{}{}{}")
+    # print(sent1)
+    # print(sent2)
+    # print("{{{{{{}}}}}}")
+    unifier = {}  # type: Dict[str, str]
+    predicate_matches = []  # type: List[Tuple[int, int]]
 
     # Match predicates
-    flag = False
+    all_var_flag = True
+    const_mismatch = False
+
+    '''
+    all variables in both -> Fail
+    mixed:
+        const mismatch -> Fail
+        const match -> Pass
+    all consts:
+        const mismatch -> Fial
+        const match -> Pass
+
+    '''
+
     for i, lit1 in enumerate(sent1.disjoint_literals):
         for j, lit2 in enumerate(sent2.disjoint_literals):
             if lit1.predicate == lit2.predicate and lit1.negated != lit2.negated:
-                matches.append((i, j))
+                predicate_matches.append((i, j))
 
                 assert(len(lit1.parameters) == len(lit2.parameters))
 
                 # REVIEW Set up unification of parameters
                 for k in range(len(lit1.parameters)):
                     if lit1.parameters[k].is_var and not lit2.parameters[k].is_var:
-                        print("[1]")
-                        flag = True
+                        all_var_flag = False
                         unifier[str(lit1.parameters[k])] = str(
                             lit2.parameters[k])
                     elif not lit1.parameters[k].is_var and lit2.parameters[k].is_var:
-                        flag = True
-                        print("[2]")
+                        all_var_flag = False
                         unifier[str(lit2.parameters[k])] = str(
                             lit1.parameters[k])
                     elif lit1.parameters[k].is_var and lit2.parameters[k].is_var:
-                        print("[OY]")
                         pass
                     else:  # both are constants
-                        pass
+                        all_var_flag = False
+                        if str(lit1.parameters[k]) != str(lit2.parameters[k]):
+                            const_mismatch = True
+                            break
+            if const_mismatch:
+                break
+    # print("-after-")
+    # print(sent1)
+    # print(sent2)
+    # print(all_var_flag, const_mismatch)
+    if all_var_flag or const_mismatch:  # Failure
+        return None, False
+    # print('-clone-')
+    s1_copy = sent1.clone()
+    s2_copy = sent2.clone()
+    # print(s1_copy)
+    # print(s2_copy)
 
-    if not flag:
-        return sent1, flag
-
-    s1_copy = copy.deepcopy(sent1)
-    s2_copy = copy.deepcopy(sent2)
-
-    for index_tuple in matches:
+    # print(predicate_matches)
+    # s1_backup = [] # type: List[Literal]
+    # s2_backup = [] # type: List[Literal]
+    for index_tuple in predicate_matches:
+        # s1_backup.append(s1_copy.disjoint_literals[index_tuple[0]])
+        # s2_backup.append(s2_copy.disjoint_literals[index_tuple[1]])
         s1_copy.disjoint_literals[index_tuple[0]] = None
         s2_copy.disjoint_literals[index_tuple[1]] = None
     s1_copy.disjoint_literals = [x for x in s1_copy.disjoint_literals if x]
     s2_copy.disjoint_literals = [x for x in s2_copy.disjoint_literals if x]
+
     # print(s1_copy.disjoint_literals)
     # print(s2_copy.disjoint_literals)
 
     # Remove literals and unify remaining
-    s1_copy = unify(s1_copy, unifier)
-    s2_copy = unify(s2_copy, unifier)
+    s1_unified, s1_status = unify(s1_copy, unifier)
+    s2_unified, s2_status = unify(s2_copy, unifier)
+    # print('-unified-')
+    # print(s1_unified, s1_status)
+    # print(s2_unified, s2_status)
+
+    # print('-contingent-')
+    # print(sent1)
+    # print(sent2)
+    # REVIEW
+
+    if s1_status == UnifStatus.EMPTY and s2_status == UnifStatus.EMPTY:
+
+        if not sent1.contains_only_constants() and not sent2.contains_only_constants():
+            print("OH BOY")
+            print("-----")
+            print(sent1)
+            print(sent2)
+            print("-----")
+            input("...")
+
+            return sent1, False
+        else:
+            print("$$$$$$$")
+            print(sent1.disjoint_literals)
+            print(sent2.disjoint_literals)
+            print("$$$$$$$")
+            input("...")
+
+    elif s1_status == UnifStatus.INVALID or s2_status == UnifStatus.INVALID:
+            print("Either invalid?")
+            print(sent1, sent1.contains_only_constants())
+            print(sent2, sent2.contains_only_constants())
+            print("--->")
+            print(s1_unified)
+            print(s2_unified)
+            return None, False
 
     s1_str = s2_str = ""
 
-    if s1_copy:
-        s1_str = s1_copy.update_sentence_string()
-    if s2_copy:
-        s2_str = s2_copy.update_sentence_string()
+    if s1_unified:
+        s1_str = s1_unified.update_sentence_string()
+    if s2_unified:
+        s2_str = s2_unified.update_sentence_string()
 
     s1_empty = not bool(s1_str)
     s2_empty = not bool(s2_str)
 
     if s1_empty and s2_empty:
-        return None, flag
+        return None, True
     elif s1_empty and not s2_empty:
-        return Sentence(s2_str), flag
+        return Sentence(s2_str), True
     elif not s1_empty and s2_empty:
-        return Sentence(s1_str), flag
+        return Sentence(s1_str), True
     else:
-        return Sentence(s1_str + "|" + s2_str), flag
+        return Sentence(s1_str + "|" + s2_str), True
 
 
-def prove_by_resolution(k_base, query):
+def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
     not_query = Sentence(query.copy().negate().update_lit_string())
-    KB = copy.deepcopy(k_base)
-    KB = [not_query] + KB
+    know_base = copy.deepcopy(k_base)
+    know_base = [not_query] + know_base
     # Does a rule exist in the KB that we can resolve with?
     # print(len(KB), "sentences in the KB")
-    s_index = t_index = 0
-    while KB:
-        try_resolve = True
-        print(s_index, t_index)
-        # print(s_index, loop_flag)
-        target_sentence = KB[t_index]
-        current_sentence = KB[s_index]
-        # No need to check for resolution if they're the same
+    already_resolved = {}  # type: Dict[Tuple[str, str], bool]
 
-        if not target_sentence.contains_constant and not current_sentence.contains_constant:
+    t_index = 0
+    s_index = 1
+
+    while know_base:
+        saturated = len(know_base) * (len(know_base) - 1)
+        # print(s_index, t_index, len(already_resolved), saturated, len(know_base))
+        if len(already_resolved) % 2 != 0:
+            print(already_resolved)
+            sys.exit()
+        if len(already_resolved) >= saturated:
+            print("Wowzer!")
+            return False
+        try_resolve = True
+        resolved_flag = False
+        # print(s_index, t_index)
+        # print(s_index, loop_flag)
+        target_sentence = know_base[t_index]
+        current_sentence = know_base[s_index]
+        # Can't unify variables, and we assume KB is already consistent
+        no_const_flag = not target_sentence.contains_constant and not current_sentence.contains_constant
+
+        # Check if we've alraedy tried this pair
+        if s_index != t_index:
+            try:
+                if already_resolved[(str(current_sentence), str(target_sentence))] or already_resolved[(str(target_sentence), str(current_sentence))]:
+                    resolved_flag = True
+            except KeyError:
+                resolved_flag = False
+                already_resolved[(str(current_sentence),
+                                  str(target_sentence))] = True
+                already_resolved[(str(target_sentence),
+                                  str(current_sentence))] = True
+
+
+        if no_const_flag or resolved_flag or s_index == t_index:
             try_resolve = False
-        # print("=" * 10, "COMPARE", "=" * 10)
-        # print(current_sentence)
-        # print(target_sentence)
+
         if try_resolve:
+            # print(s_index, t_index)
+            skip_count = 0
+
             for cur_lit in current_sentence.disjoint_literals:
                 breakout = False
                 for tar_lit in target_sentence.disjoint_literals:
                     # TODO: Update target
                     if cur_lit.predicate == tar_lit.predicate and cur_lit.negated != tar_lit.negated:
                         # print("Found match!")
-                        print("[TARGET]", end=" ")
-                        print(target_sentence)
-                        print("[MATCH]", end=" ")
-                        print(current_sentence)
+                        # print("[TARGET]", end=" ")
+                        # print(target_sentence)
+                        # print("[MATCH]", end=" ")
+                        # print(current_sentence)
                         resultant_sentence, status = unify_and_resolve(
                             current_sentence, target_sentence)
                         if status:
-                            print("[AFTER]", end=" ")
-                            print(resultant_sentence)
+                            t_str = "[TARGET] " + str(target_sentence)
+                            m_str = "[MATCH] " + str(current_sentence)
+                            r_str = "[RESULT] " + str(resultant_sentence)
+                            match_str = t_str + "\n" + m_str + "\n" + r_str + "\n\n"
+
+                            MATCHES.append(match_str)
+
+
                             if not resultant_sentence:  # Great success!
+                                # print("[!] True!")
+                                printk(know_base)
+                                print(current_sentence, target_sentence)
                                 return True
                             # Update the knowledge base with our new, unified
                             # sentence
-                            KB[s_index] = resultant_sentence
-                            del KB[t_index]
-                            # target_sentence = resultant_sentence
-                            t_index = s_index = 0
+                            in_kb_flag = False
+                            for s in know_base:
+                                if str(s) == str(resultant_sentence):
+                                    in_kb_flag = True
+
+                            if not in_kb_flag:
+                                know_base.append(resultant_sentence)
+                                printk(know_base)
+                                # input("..")
+                                # already_resolved.append((s_index, t_index))
+
+                            # know_base[s_index] = resultant_sentence
+                            # del know_base[t_index]
+                            # t_index = 0  # len(know_base) - 1
+                            # s_index = 0
                             breakout = True
+                            # know_base = sorted(
+                            #     know_base, key=lambda s: len(s.disjoint_literals))
+
                             break
                 if breakout:
                     break
@@ -300,18 +482,21 @@ def prove_by_resolution(k_base, query):
             s_index += 1
 
         # print(s_index, t_index, len(KB))
-        if s_index >= len(KB) - 1:
+        if s_index >= len(know_base):
             s_index = 0
             t_index += 1
-            target = KB[t_index]
 
-            if t_index == len(KB) - 1:
-                print("===KB===")
-                for k in KB:
-                    print(k)
-                print("========")
-                return False
-            loop_flag = True
+        if t_index >= len(know_base):
+            t_index = 0
+
+            # printk(know_base)
+            # print("[!] The query is false!")
+            # return False
+
+    print("[!] What did you do...")
+    print(know_base)
+    print(bool(know_base))
+    return True
 
 
 ''' What do I do about this
@@ -323,16 +508,30 @@ def prove_by_resolution(k_base, query):
 
 if __name__ == "__main__":
     CASES = "cases/"
+    MATCHES = [] # type: List[str]
     for i in range(1, 2):
         print("======= INPUT " + str(i) + " =========")
         queries, k_base = parse_input(CASES + "input" + str(i) + ".txt")
         print("[!] %d queries and %d sentences" % (len(queries), len(k_base)))
         results = []
+        ind = 0
         for q in queries:
+            print(q)
+            printk(k_base)
             if prove_by_resolution(k_base, q):
                 results.append("TRUE")
             else:
                 results.append("FALSE")
+
+
+            # with open("matches%d.txt"%ind, "w") as f:
+            #     f.write(str(len(MATCHES)) + "\n")
+            #     for m in MATCHES:
+            #         f.write(m)
+            ind += 1
+
+            # sys.exit()
+            # sys.exit()
         # Compare results to expected values
         with open(CASES + "output" + str(i) + ".txt", "r") as f:
             actual = f.read().split('\n')
