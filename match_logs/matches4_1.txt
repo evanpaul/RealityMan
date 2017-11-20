@@ -1,6 +1,0 @@
-~A(x)|B(John)
-1
-[TARGET] ~B(John)
-[MATCH] ~A(x)|B(John)
-[RESULT] ~A(x)
-
