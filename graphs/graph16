@@ -1,0 +1,13 @@
+// Resolution Graph
+digraph {
+	"~D(Chris)" [color=blue shape=doublecircle]
+	"C(Chris,Jill)"
+	"~D(Chris)" -> "C(Chris,Jill)"
+	"C(x,Jill)|D(x)" -> "C(Chris,Jill)"
+	"B(Ada)"
+	"A(Umbrella)" -> "B(Ada)"
+	"~A(x)|B(Ada)" -> "B(Ada)"
+	"{}" [color=red shape=star]
+	"~C(x,Jill)" -> "{}"
+	"C(Chris,Jill)" -> "{}"
+}

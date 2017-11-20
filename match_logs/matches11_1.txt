@@ -1,0 +1,11 @@
+A(x)
+~A(x)|B(John)
+2
+[TARGET] ~B(John)
+[MATCH] ~A(x)|B(John)
+[RESULT] ~A(x)
+
+[TARGET] A(x)
+[MATCH] ~A(x)
+[RESULT] None
+

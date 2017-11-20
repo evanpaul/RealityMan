@@ -1,0 +1,35 @@
+~F(x)|G(x)
+~G(x)|H(x)
+F(x)|~H(x)
+H(x)|~R(x)
+~A(x)|H(x)
+~D(x,y)|~H(y)
+A(x)|~B(x,y)|~C(x,y)
+B(John,Alice)
+B(John,Joe)
+C(x,y)|~D(x,y)|~Q(y)
+D(John,Alice)
+Q(Joe)
+D(John,Joe)
+R(Tom)
+5
+[TARGET] H(Alice)
+[MATCH] F(x)|~H(x)
+[RESULT] F(Alice)
+
+[TARGET] H(Alice)
+[MATCH] ~D(x,y)|~H(y)
+[RESULT] ~D(x,Alice)
+
+[TARGET] B(John,Alice)
+[MATCH] A(x)|~B(x,y)|~C(x,y)
+[RESULT] A(John)|~C(John,Alice)
+
+[TARGET] B(John,Joe)
+[MATCH] A(x)|~B(x,y)|~C(x,y)
+[RESULT] A(John)|~C(John,Joe)
+
+[TARGET] D(John,Alice)
+[MATCH] ~D(x,Alice)
+[RESULT] None
+

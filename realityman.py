@@ -477,4 +477,4 @@ if __name__ == "__main__":
                 else:
                     print(":(", end="")
                 print("\tActual:", actual[j], "\tResult:", results[j])
-        input("...")
+        # input("...")

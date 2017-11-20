@@ -1,0 +1,10 @@
+// Resolution Graph
+digraph {
+	"~Male(Bob)" [color=blue shape=doublecircle]
+	"Human(Bob)"
+	"~Male(Bob)" -> "Human(Bob)"
+	"Human(y)|Male(y)" -> "Human(Bob)"
+	"{}" [color=red shape=star]
+	"~Human(z)" -> "{}"
+	"Human(Bob)" -> "{}"
+}

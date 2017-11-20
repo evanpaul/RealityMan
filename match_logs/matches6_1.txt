@@ -1,0 +1,24 @@
+Evil(x)|~Greedy(x)|~King(x)
+King(John)
+Greedy(x)
+5
+[TARGET] ~Evil(John)
+[MATCH] Evil(x)|~Greedy(x)|~King(x)
+[RESULT] ~Greedy(John)|~King(John)
+
+[TARGET] King(John)
+[MATCH] ~Greedy(John)|~King(John)
+[RESULT] ~Greedy(John)
+
+[TARGET] King(John)
+[MATCH] Evil(x)|~Greedy(x)|~King(x)
+[RESULT] Evil(John)|~Greedy(John)
+
+[TARGET] ~Evil(John)
+[MATCH] Evil(John)|~Greedy(John)
+[RESULT] ~Greedy(John)
+
+[TARGET] Greedy(x)
+[MATCH] ~Greedy(John)
+[RESULT] None
+

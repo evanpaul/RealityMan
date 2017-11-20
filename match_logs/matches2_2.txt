@@ -1,0 +1,199 @@
+Mother(Liz,Charley)
+Father(Charley,Billy)
+~Mother(x,y)|Parent(x,y)
+~Father(x,y)|Parent(x,y)
+Ancestor(x,y)|~Parent(x,y)
+~Ancestor(y,z)|Ancestor(x,z)|~Parent(x,y)
+48
+[TARGET] ~Ancestor(Liz,Joe)
+[MATCH] Ancestor(x,y)|~Parent(x,y)
+[RESULT] ~Parent(Liz,Joe)
+
+[TARGET] ~Ancestor(Liz,Joe)
+[MATCH] ~Ancestor(y,z)|Ancestor(x,z)|~Parent(x,y)
+[RESULT] ~Ancestor(y,Joe)|~Parent(Liz,y)
+
+[TARGET] Mother(Liz,Charley)
+[MATCH] ~Mother(x,y)|Parent(x,y)
+[RESULT] Parent(Liz,Charley)
+
+[TARGET] Father(Charley,Billy)
+[MATCH] ~Father(x,y)|Parent(x,y)
+[RESULT] Parent(Charley,Billy)
+
+[TARGET] ~Parent(Liz,Joe)
+[MATCH] ~Mother(x,y)|Parent(x,y)
+[RESULT] ~Mother(Liz,Joe)
+
+[TARGET] ~Parent(Liz,Joe)
+[MATCH] ~Father(x,y)|Parent(x,y)
+[RESULT] ~Father(Liz,Joe)
+
+[TARGET] Parent(Liz,Charley)
+[MATCH] Ancestor(x,y)|~Parent(x,y)
+[RESULT] Ancestor(Liz,Charley)
+
+[TARGET] Parent(Liz,Charley)
+[MATCH] ~Ancestor(y,Joe)|~Parent(Liz,y)
+[RESULT] ~Ancestor(Charley,Joe)
+
+[TARGET] Parent(Liz,Charley)
+[MATCH] ~Ancestor(y,z)|Ancestor(x,z)|~Parent(x,y)
+[RESULT] ~Ancestor(Charley,z)|Ancestor(Liz,z)
+
+[TARGET] ~Ancestor(Liz,Joe)
+[MATCH] ~Ancestor(Charley,z)|Ancestor(Liz,z)
+[RESULT] ~Ancestor(Charley,Joe)
+
+[TARGET] Parent(Charley,Billy)
+[MATCH] Ancestor(x,y)|~Parent(x,y)
+[RESULT] Ancestor(Charley,Billy)
+
+[TARGET] Parent(Charley,Billy)
+[MATCH] ~Ancestor(y,z)|Ancestor(x,z)|~Parent(x,y)
+[RESULT] ~Ancestor(Billy,z)|Ancestor(Charley,z)
+
+[TARGET] Ancestor(Liz,Charley)
+[MATCH] ~Ancestor(y,z)|Ancestor(x,z)|~Parent(x,y)
+[RESULT] Ancestor(x,Charley)|~Parent(x,Liz)
+
+[TARGET] ~Ancestor(Charley,Joe)
+[MATCH] Ancestor(x,y)|~Parent(x,y)
+[RESULT] ~Parent(Charley,Joe)
+
+[TARGET] ~Ancestor(Charley,Joe)
+[MATCH] ~Ancestor(Billy,z)|Ancestor(Charley,z)
+[RESULT] ~Ancestor(Billy,Joe)
+
+[TARGET] ~Ancestor(Charley,Joe)
+[MATCH] ~Ancestor(y,z)|Ancestor(x,z)|~Parent(x,y)
+[RESULT] ~Ancestor(y,Joe)|~Parent(Charley,y)
+
+[TARGET] Parent(Charley,Billy)
+[MATCH] ~Ancestor(y,Joe)|~Parent(Charley,y)
+[RESULT] ~Ancestor(Billy,Joe)
+
+[TARGET] Ancestor(Charley,Billy)
+[MATCH] ~Ancestor(Charley,z)|Ancestor(Liz,z)
+[RESULT] Ancestor(Liz,Billy)
+
+[TARGET] Ancestor(Charley,Billy)
+[MATCH] ~Ancestor(y,z)|Ancestor(x,z)|~Parent(x,y)
+[RESULT] Ancestor(x,Billy)|~Parent(x,Charley)
+
+[TARGET] Parent(Liz,Charley)
+[MATCH] Ancestor(x,Billy)|~Parent(x,Charley)
+[RESULT] Ancestor(Liz,Billy)
+
+[TARGET] ~Parent(Charley,Joe)
+[MATCH] ~Mother(x,y)|Parent(x,y)
+[RESULT] ~Mother(Charley,Joe)
+
+[TARGET] ~Parent(Charley,Joe)
+[MATCH] ~Father(x,y)|Parent(x,y)
+[RESULT] ~Father(Charley,Joe)
+
+[TARGET] ~Ancestor(Billy,Joe)
+[MATCH] Ancestor(x,y)|~Parent(x,y)
+[RESULT] ~Parent(Billy,Joe)
+
+[TARGET] ~Ancestor(Billy,Joe)
+[MATCH] ~Ancestor(y,z)|Ancestor(x,z)|~Parent(x,y)
+[RESULT] ~Ancestor(y,Joe)|~Parent(Billy,y)
+
+[TARGET] Ancestor(Liz,Billy)
+[MATCH] ~Ancestor(y,z)|Ancestor(x,z)|~Parent(x,y)
+[RESULT] Ancestor(x,Billy)|~Parent(x,Liz)
+
+[TARGET] ~Parent(Billy,Joe)
+[MATCH] ~Mother(x,y)|Parent(x,y)
+[RESULT] ~Mother(Billy,Joe)
+
+[TARGET] ~Parent(Billy,Joe)
+[MATCH] ~Father(x,y)|Parent(x,y)
+[RESULT] ~Father(Billy,Joe)
+
+[TARGET] ~Mother(x,y)|Parent(x,y)
+[MATCH] ~Ancestor(y,Joe)|~Parent(Liz,y)
+[RESULT] ~Ancestor(y,Joe)|~Mother(Liz,y)
+
+[TARGET] Mother(Liz,Charley)
+[MATCH] ~Ancestor(y,Joe)|~Mother(Liz,y)
+[RESULT] ~Ancestor(Charley,Joe)
+
+[TARGET] ~Mother(x,y)|Parent(x,y)
+[MATCH] Ancestor(x,Charley)|~Parent(x,Liz)
+[RESULT] Ancestor(x,Charley)|~Mother(x,Liz)
+
+[TARGET] ~Mother(x,y)|Parent(x,y)
+[MATCH] ~Ancestor(y,Joe)|~Parent(Charley,y)
+[RESULT] ~Ancestor(y,Joe)|~Mother(Charley,y)
+
+[TARGET] ~Mother(x,y)|Parent(x,y)
+[MATCH] Ancestor(x,Billy)|~Parent(x,Charley)
+[RESULT] Ancestor(x,Billy)|~Mother(x,Charley)
+
+[TARGET] Mother(Liz,Charley)
+[MATCH] Ancestor(x,Billy)|~Mother(x,Charley)
+[RESULT] Ancestor(Liz,Billy)
+
+[TARGET] ~Mother(x,y)|Parent(x,y)
+[MATCH] ~Ancestor(y,Joe)|~Parent(Billy,y)
+[RESULT] ~Ancestor(y,Joe)|~Mother(Billy,y)
+
+[TARGET] ~Mother(x,y)|Parent(x,y)
+[MATCH] Ancestor(x,Billy)|~Parent(x,Liz)
+[RESULT] Ancestor(x,Billy)|~Mother(x,Liz)
+
+[TARGET] ~Father(x,y)|Parent(x,y)
+[MATCH] ~Ancestor(y,Joe)|~Parent(Liz,y)
+[RESULT] ~Ancestor(y,Joe)|~Father(Liz,y)
+
+[TARGET] ~Father(x,y)|Parent(x,y)
+[MATCH] Ancestor(x,Charley)|~Parent(x,Liz)
+[RESULT] Ancestor(x,Charley)|~Father(x,Liz)
+
+[TARGET] ~Father(x,y)|Parent(x,y)
+[MATCH] ~Ancestor(y,Joe)|~Parent(Charley,y)
+[RESULT] ~Ancestor(y,Joe)|~Father(Charley,y)
+
+[TARGET] Father(Charley,Billy)
+[MATCH] ~Ancestor(y,Joe)|~Father(Charley,y)
+[RESULT] ~Ancestor(Billy,Joe)
+
+[TARGET] ~Father(x,y)|Parent(x,y)
+[MATCH] Ancestor(x,Billy)|~Parent(x,Charley)
+[RESULT] Ancestor(x,Billy)|~Father(x,Charley)
+
+[TARGET] ~Father(x,y)|Parent(x,y)
+[MATCH] ~Ancestor(y,Joe)|~Parent(Billy,y)
+[RESULT] ~Ancestor(y,Joe)|~Father(Billy,y)
+
+[TARGET] ~Father(x,y)|Parent(x,y)
+[MATCH] Ancestor(x,Billy)|~Parent(x,Liz)
+[RESULT] Ancestor(x,Billy)|~Father(x,Liz)
+
+[TARGET] Ancestor(x,y)|~Parent(x,y)
+[MATCH] ~Ancestor(y,Joe)|~Parent(Liz,y)
+[RESULT] ~Parent(Liz,Joe)|~Parent(x,Joe)
+
+[TARGET] ~Mother(x,y)|Parent(x,y)
+[MATCH] ~Parent(Liz,Joe)|~Parent(x,Joe)
+[RESULT] ~Mother(Liz,Joe)
+
+[TARGET] ~Father(x,y)|Parent(x,y)
+[MATCH] ~Parent(Liz,Joe)|~Parent(x,Joe)
+[RESULT] ~Father(Liz,Joe)
+
+[TARGET] Ancestor(x,y)|~Parent(x,y)
+[MATCH] ~Ancestor(Charley,z)|Ancestor(Liz,z)
+[RESULT] Ancestor(Liz,z)|~Parent(Charley,y)
+
+[TARGET] ~Ancestor(Liz,Joe)
+[MATCH] Ancestor(Liz,z)|~Parent(Charley,y)
+[RESULT] ~Parent(Charley,y)
+
+[TARGET] Parent(Charley,Billy)
+[MATCH] ~Parent(Charley,y)
+[RESULT] None
+
