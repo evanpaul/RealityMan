@@ -202,10 +202,6 @@ def unify(sentence: Sentence, unifier_dict: Dict[str, str]) -> Tuple[Sentence, U
                     # equivalent constants
                     if str(_) == unifier_dict[str(p)]:
                         # Invalid resolution
-                        print("[INVALID]")
-                        print(literal)
-                        print(unifier_dict)
-                        print("[/]")
                         return None, UnifStatus.INVALID
 
                 literal.parameters[i] = Parameter(unifier_dict[str(p)])
@@ -234,7 +230,6 @@ def unify(sentence: Sentence, unifier_dict: Dict[str, str]) -> Tuple[Sentence, U
 def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]:
     unifier = {}  # type: Dict[str, str]
     predicate_matches = []  # type: List[Tuple[int, int]]
-
     # Match predicates
     all_var_flag = True
     const_mismatch = False
@@ -268,8 +263,7 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
                             break
             if const_mismatch:
                 break
-
-    perfect_compliment = len(predicate_matches) == len(sent1.disjoint_literals)
+    perfect_compliment = len(predicate_matches) == len(sent1.disjoint_literals) == 1
     imperfect_compliment = (all_var_flag and not perfect_compliment)
 
     if imperfect_compliment or const_mismatch:  # Failure
@@ -289,36 +283,15 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
     s1_unified, s1_status = unify(s1_copy, unifier)
     s2_unified, s2_status = unify(s2_copy, unifier)
 
+    # If the result is empty, double-check that we have a perfect compliment.
+    # Otherwise, something unknown went wrong.
     if s1_status == UnifStatus.EMPTY and s2_status == UnifStatus.EMPTY:
         if not sent1.contains_only_constants() and not sent2.contains_only_constants():
-            # REVIEW I have not seen this case occur yet
-            print("---!---")
-            print(sent1)
-            print(sent2)
-            print("---!---")
-            input("!!!")
-
-            return sent1, False
-        else:
-            # REVIEW This seems to happen only when we are about to find a
-            # contradiction
-            print("=======")
-            print(sent1.disjoint_literals)
-            print(sent2.disjoint_literals)
-            print("=======")
-            # input("...")
-
+            if perfect_compliment:
+                return None, True
+            else:
+                return None, False
     elif s1_status == UnifStatus.INVALID or s2_status == UnifStatus.INVALID:
-        # REVIEW This seems to only happen when trying to resolve a predicate
-        # with more than one of the same constant
-        print("=== Either invalid? ===")
-        print(sent1, sent1.contains_only_constants())
-        print(sent2, sent2.contains_only_constants())
-        print("===>")
-        print(s1_unified)
-        print(s2_unified)
-        print("=======================")
-
         return None, False
 
     s1_str = s2_str = ""
@@ -358,11 +331,10 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
         saturated = len(know_base) * (len(know_base) - 1)
         # print(s_index, t_index, len(tried_pairs), saturated, len(know_base))
         if len(tried_pairs) % 2 != 0:  # This shouldn't occur! Pairs are added... well... in pairs
-            print(tried_pairs)
-            sys.exit()  # TODO Remove before submitting!
+            sys.exit("[!] Invalid pair size!")  # TODO Remove before submitting!
         if len(tried_pairs) >= saturated:
             res_graph.view()
-            print("Tried all combinations! Must be false")
+            print("[!] Tried all combinations! Must be false")
             return False
         try_resolve = True
         resolved_flag = False
@@ -370,7 +342,7 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
         target_sentence = know_base[t_index]
         current_sentence = know_base[s_index]
         # Can't unify variables, and we assume KB is already consistent
-        no_const_flag = not target_sentence.contains_constant and not current_sentence.contains_constant
+        # no_const_flag = not target_sentence.contains_constant and not current_sentence.contains_constant
 
         # Check if we've alraedy tried this pair
         if s_index != t_index:
@@ -385,7 +357,7 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
                 tried_pairs[(str(target_sentence),
                              str(current_sentence))] = True
 
-        if no_const_flag or resolved_flag or s_index == t_index:
+        if resolved_flag or s_index == t_index:
             try_resolve = False
 
         if try_resolve:
@@ -405,7 +377,7 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
 
                             # Used in case we want to write results to file
                             MATCHES.append(match_str)
-                            print(match_str)
+                            # print(match_str)
 
                             if not resultant_sentence:  # Great success!
                                 print(
@@ -424,7 +396,6 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
                                 res_graph.add(
                                     target_sentence, current_sentence, resultant_sentence)
                                 know_base.append(resultant_sentence)
-                                printk(know_base)
                                 # input("...")
                             # REVIEW Which works fastest?
                             t_index = 0
@@ -464,9 +435,9 @@ def write_matches(ind=0):
 
 if __name__ == "__main__":
     CASES = "cases/"
-    for FILE_INDEX in range(1, 12):
-        # if i != 2:  # TODO Input 2 currently doesn't work. Remove before submission!
-        #     continue
+    tests = range(1, 12)
+    # tests = [5]
+    for FILE_INDEX in tests:
         print("======= INPUT " + str(FILE_INDEX) + " =========")
         queries, k_base = parse_input(
             CASES + "input" + str(FILE_INDEX) + ".txt")
@@ -478,7 +449,7 @@ if __name__ == "__main__":
         try:
             for q in queries:
                 MATCHES = []  # type: List[str]
-                print(q)
+                print("=>", q)
                 printk(k_base)
                 if prove_by_resolution(k_base, q):
                     results.append("TRUE")

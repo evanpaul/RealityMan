@@ -1,6 +1,0 @@
-Offspring(a,b,c,d,e,f,g,h)
-1
-[TARGET] ~Offspring(Jojo,Jojo,Jojo,Jojo,Jojo,Jojo,Jojo,Jojo)
-[MATCH] Offspring(a,b,c,d,e,f,g,h)
-[RESULT] None
-
