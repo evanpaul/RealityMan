@@ -2,16 +2,14 @@ from graphviz import Digraph
 
 
 class ResolutionGraph:
-    i = 0
-
-    def __init__(self):
-        ResolutionGraph._incr()
+    def __init__(self, file_num, query_num=1):
+        self.query_num = query_num
         self.new = True
         self.graph = Digraph(comment='Resolution Graph', format="png")
+        self.file_num = file_num
 
-    @staticmethod
-    def _incr():
-        ResolutionGraph.i += 1
+    def next_query(self):
+        return ResolutionGraph(self.file_num, self.query_num + 1)
 
     def add(self, parent1, parent2, child):
         p1 = str(parent1)
@@ -34,16 +32,7 @@ class ResolutionGraph:
         self.graph.edge(p1, c)
         self.graph.edge(p2, c)
 
-    def view(self):
-        self.graph.render('graphs/graph%d' % ResolutionGraph.i, view=False)
-
-
-#
-# dot.node('A', 'King Arthur')
-# dot.node('B', 'Sir Bedevere the Wise')
-# dot.node('L', 'Sir Lancelot the Brave')
-#
-# dot.edges(['AB', 'AL'])
-# dot.edge('B', 'L', constraint='false')
-# dot.render('test-output/round-table.gv', view=True)  # doctest: +SKIP
-# 'test-output/round-table.gv.pdf'
+    def save(self):
+        path = 'graphs/input%dquery%d' % (self.file_num, self.query_num)
+        print("[!] Saving resolution graph to:", path)
+        self.graph.render(path, view=False)

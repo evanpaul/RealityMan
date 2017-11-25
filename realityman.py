@@ -2,27 +2,29 @@ import copy
 import sys
 from typing import *
 from enum import Enum
+from collections import defaultdict
 from graph import ResolutionGraph
 
 
 class UnifStatus(Enum):
+    FAIL = 0
     SUCCESS = 1
-    EMPTY = 2
-    INVALID = 3
+    MULTI = 2
+    EMPTY = 3
+    INVALID = 4
 
 
 class Parameter:
     def __init__(self, param_string: str) -> None:
         self.parse_param(param_string)
 
-    def parse_param(self, param_string: str):
+    def parse_param(self, param_string: str) -> None:
         self.param_string = param_string
         if len(param_string) == 1 and param_string.islower():  # Variable
             self.is_var = True
         elif param_string[0].isupper():  # Constant
             self.is_var = False
         else:
-            # TODO: Remove before submitting: assume variable?
             raise ValueError("Malformed parameter")
 
     def __repr__(self) -> str:
@@ -38,6 +40,14 @@ class Literal:
         self.update_lit_string()
         return self
 
+    def __eq__(self, other):
+        if str(self) == str(other):
+            return True
+        return False
+
+    def __hash__(self):
+        return hash(str(self))
+
     def copy(self):
         return copy.deepcopy(self)
 
@@ -47,14 +57,14 @@ class Literal:
                 return False
         return True
 
-    def parse_literal_string(self, literal_string: str):
+    def parse_literal_string(self, literal_string: str) -> None:
         self.literal_string = literal_string
 
         negation = literal_string[0] == "~"
         if negation:  # Chop off negation symbol
             literal_string = literal_string[1:]
 
-        parameters = []  # type: List[Parameter]
+        parameters: List[Parameter] = []
         for index, char in enumerate(literal_string):
             if char == "(":  # End of predicate name
                 predicate = literal_string[:index]
@@ -86,28 +96,20 @@ class Literal:
 
         return self.literal_string
 
-    def __repr__(self) -> str:
-        param_string = ""
-        for i, p in enumerate(self.parameters):
-            if i == len(self.parameters) - 1:
-                param_string += str(p)
-            else:
-                param_string += str(p) + ", "
-        string = "%s\n[Negated]\t%r\n[Predicate]\t%s\n[Parameters]\t%s\n" % (
-            self.literal_string, self.negated, self.predicate, param_string)
-        return string
+    def __repr__(self):
+        return self.update_lit_string()
 
 
 class Sentence:
     def __init__(self, sentence_string: str) -> None:
-        self.disjoint_literals = []  # type: List[Literal]
+        self.disjoint_literals: List[Literal] = []
         self.contains_constant = False
         self.parse_sentence_string(sentence_string)
 
     def clone(self):
         return Sentence(self.update_sentence_string())
 
-    def parse_sentence_string(self, sentence_string: str):
+    def parse_sentence_string(self, sentence_string: str) -> None:
         self.sentence_string = sentence_string
         disjoint_literals = sentence_string.split("|")
 
@@ -124,11 +126,20 @@ class Sentence:
                 return False
         return True
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return self.sentence_string
+
+    def __eq__(self, other):
+        if str(self) == str(other):
+            return True
+        return False
+
+    def __hash__(self):
+        return hash(str(self))
 
     def update_sentence_string(self) -> str:
         resultant_string = ""
+        self.disjoint_literals.sort(key=lambda l: l.predicate)
         if self.disjoint_literals:
             for i, lit in enumerate(self.disjoint_literals):
                 if lit.negated:
@@ -211,68 +222,14 @@ def unify(sentence: Sentence, unifier_dict: Dict[str, str]) -> Tuple[Sentence, U
     return sent, UnifStatus.SUCCESS
 
 
-'''
-[TARGET] Ancestor(Charley,Billy)
-[MATCH] ~Ancestor(Charley,z)|Ancestor(Liz,z)
-[RESULT] Ancestor(Liz,Billy)
-
-[TARGET] Ancestor(x,y)|~Parent(x,y)
-[MATCH] ~Ancestor(Charley,z)|Ancestor(Liz,z)
-[RESULT] Ancestor(Liz,z)|~Parent(Charley,y)
-
-
-[TARGET] ~Ancestor(Liz,Joe)
-[MATCH] Ancestor(Liz,z)|~Parent(Charley,y)
-[RESULT] ~Parent(Charley,y)
-'''
-
-
-def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]:
-    unifier = {}  # type: Dict[str, str]
-    predicate_matches = []  # type: List[Tuple[int, int]]
-    # Match predicates
-    all_var_flag = True
-    const_mismatch = False
-
-    # Go through each literal and find the ones are complimentary matches
-    for i, lit1 in enumerate(sent1.disjoint_literals):
-        for j, lit2 in enumerate(sent2.disjoint_literals):
-            if lit1.predicate == lit2.predicate and lit1.negated != lit2.negated:
-                predicate_matches.append((i, j))
-
-                assert(len(lit1.parameters) == len(lit2.parameters))
-
-                # Set up unification of parameters
-                for k in range(len(lit1.parameters)):
-                    if lit1.parameters[k].is_var and not lit2.parameters[k].is_var:
-                        all_var_flag = False
-                        unifier[str(lit1.parameters[k])] = str(
-                            lit2.parameters[k])
-                    elif not lit1.parameters[k].is_var and lit2.parameters[k].is_var:
-                        all_var_flag = False
-                        unifier[str(lit2.parameters[k])] = str(
-                            lit1.parameters[k])
-                    elif lit1.parameters[k].is_var and lit2.parameters[k].is_var:
-                        # REVIEW Alias: doesn't seem like any additional action
-                        # is required?
-                        pass
-                    else:  # both are constants
-                        all_var_flag = False
-                        if str(lit1.parameters[k]) != str(lit2.parameters[k]):
-                            const_mismatch = True
-                            break
-            if const_mismatch:
-                break
-    perfect_compliment = len(predicate_matches) == len(sent1.disjoint_literals) == 1
-    imperfect_compliment = (all_var_flag and not perfect_compliment)
-
-    if imperfect_compliment or const_mismatch:  # Failure
-        return None, False
-
+def resolve(sent1: Sentence,
+            sent2: Sentence,
+            predicate_matches: List[Tuple[int, int]],
+            unifier: Dict[str, str],
+            perfect_compliment: bool) -> Tuple[Any, UnifStatus]:
     s1_copy = sent1.clone()
     s2_copy = sent2.clone()
-
-    # Remove complimentary matched predicates
+    # No need to unify predicates that will cancel out
     for index_tuple in predicate_matches:
         s1_copy.disjoint_literals[index_tuple[0]] = None
         s2_copy.disjoint_literals[index_tuple[1]] = None
@@ -283,20 +240,21 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
     s1_unified, s1_status = unify(s1_copy, unifier)
     s2_unified, s2_status = unify(s2_copy, unifier)
 
-    # If the result is empty, double-check that we have a perfect compliment.
+    # If the result is empty, double-check that we have a  compliment.
     # Otherwise, something unknown went wrong.
     if s1_status == UnifStatus.EMPTY and s2_status == UnifStatus.EMPTY:
         if not sent1.contains_only_constants() and not sent2.contains_only_constants():
             if perfect_compliment:
-                return None, True
+                return None, UnifStatus.SUCCESS
             else:
-                return None, False
+                return None, UnifStatus.FAIL
+    # Invalid unification
     elif s1_status == UnifStatus.INVALID or s2_status == UnifStatus.INVALID:
-        return None, False
+        return None, UnifStatus.FAIL
 
+    # Update string representations
     s1_str = s2_str = ""
 
-    # Update strings
     if s1_unified:
         s1_str = s1_unified.update_sentence_string()
     if s2_unified:
@@ -306,43 +264,192 @@ def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Sentence, bool]
     s2_empty = not bool(s2_str)
 
     if s1_empty and s2_empty:
-        return None, True
+        return None, UnifStatus.SUCCESS
     elif s1_empty and not s2_empty:
-        return Sentence(s2_str), True
+        return Sentence(s2_str), UnifStatus.SUCCESS
     elif not s1_empty and s2_empty:
-        return Sentence(s1_str), True
+        return Sentence(s1_str), UnifStatus.SUCCESS
     else:
-        return Sentence(s1_str + "|" + s2_str), True
+        return Sentence(s1_str + "|" + s2_str), UnifStatus.SUCCESS
+
+
+def form_unifiers(s1: Sentence, s2: Sentence, matches: List[Tuple[int, int]]):
+    unifiers = []
+    # For each predicate match, form a separate unifier dictionary
+    for m in matches:
+        unif = {}
+        for i, p1 in enumerate(s1.disjoint_literals[m[0]].parameters):
+            p2 = s2.disjoint_literals[m[1]].parameters[i]
+            # Unify variables to anything, but constants remain untouched
+            if p1.is_var:
+                if str(p1) != str(p2):
+                    unif[str(p1)] = str(p2)
+            elif p2.is_var:
+                if str(p1) != str(p2):
+                    unif[str(p2)] = str(p1)
+        unifiers.append(unif)
+
+    return unifiers
+
+
+def unify_and_resolve(sent1: Sentence, sent2: Sentence) -> Tuple[Any, UnifStatus]:
+    general_unifier: Dict[str, str] = {}
+    predicate_matches: List[Tuple[int, int]] = []
+    # Match predicates
+    all_var_flag = True
+    const_mismatch = False
+    cross_match = False
+
+    crosses: DefaultDict[int, List[int]] = defaultdict(list)
+    # Go through each literal and find the ones are complimentary matches
+    for i, lit1 in enumerate(sent1.disjoint_literals):
+        for j, lit2 in enumerate(sent2.disjoint_literals):
+            if lit1.predicate == lit2.predicate and lit1.negated != lit2.negated:
+                # Check for existing match i.e. a "cross match"
+                # When there are cross matches we have to do more work
+                for match in predicate_matches:
+                    if match[0] == i or match[1] == j:
+                        cross_match = True
+                        crosses[match[0]].append(match[1])
+                        crosses[i].append(j)
+                        predicate_matches.remove((match[0], match[1]))
+
+                if not cross_match:
+                    predicate_matches.append((i, j))
+
+                # Set up unification of parameters
+                for k in range(len(lit1.parameters)):
+                    if lit1.parameters[k].is_var and not lit2.parameters[k].is_var:
+                        if str(lit2.parameters[k]) not in general_unifier:
+                            all_var_flag = False
+                            if not cross_match:
+                                general_unifier[str(lit1.parameters[k])] = str(
+                                    lit2.parameters[k])
+                    elif not lit1.parameters[k].is_var and lit2.parameters[k].is_var:
+                        if str(lit2.parameters[k]) not in general_unifier:
+                            all_var_flag = False
+                            if not cross_match:
+                                general_unifier[str(lit2.parameters[k])] = str(
+                                    lit1.parameters[k])
+                    elif lit1.parameters[k].is_var and lit2.parameters[k].is_var:
+                        if str(lit1.parameters[k]) not in general_unifier and str(lit2.parameters[k]) not in general_unifier:
+                            if str(lit1.parameters[k]) != str(lit2.parameters[k]):
+                                if not cross_match:
+                                    general_unifier[str(lit1.parameters[k])] = str(
+                                        lit2.parameters[k])
+                    else:  # Both compared parameters are constants
+                        all_var_flag = False
+                        if str(lit1.parameters[k]) != str(lit2.parameters[k]):
+                            const_mismatch = True
+                            break
+            if const_mismatch:
+                break
+    # A perfect compliment is something like: ~A(x) and A(x)
+    perfect_compliment = len(predicate_matches) == len(
+        sent1.disjoint_literals) == 1
+    imperfect_compliment = (all_var_flag and not perfect_compliment)
+
+    if imperfect_compliment or const_mismatch:  # Failure
+        return None, UnifStatus.FAIL
+
+    # Cross match resolution strategy
+    if cross_match:
+        combos = []
+
+        done: DefaultDict[Tuple[int, int], bool] = defaultdict(bool)
+        # Form all possible combinations of cross matches
+        for _ in range(len(crosses) * len(crosses[0])):
+            available = [True for x in crosses]
+            for l_index in crosses:
+                for i, r_index in enumerate(crosses[l_index]):
+                    if available[i] and not done[(l_index, r_index)]:
+                        available[i] = False
+                        done[(l_index, r_index)] = True
+                        combos.append((l_index, r_index))
+                        break
+
+        # Form unifier dictionaries from combinations
+        new_unifs = form_unifiers(sent1, sent2, combos)
+        results = []
+        # Try each combination
+        for ind, p in enumerate(combos):
+            p_matches = copy.deepcopy(predicate_matches)
+            p_matches.append(p)
+            unif = new_unifs[ind]
+
+            result, status = resolve(
+                sent1, sent2, p_matches, unif, perfect_compliment)
+            # REVIEW If one fails, all fail
+            if status == UnifStatus.FAIL:
+                return None, UnifStatus.FAIL
+            else:
+                results.append(result)
+
+        return (results), UnifStatus.MULTI
+
+    else:
+        # Remove complimentary matched predicates
+        return resolve(sent1, sent2, predicate_matches, general_unifier, perfect_compliment)
+
+
+def verify(s):
+    old = copy.deepcopy(s)
+
+    # Compact sentences that have somehow ended up with repeated predicates
+    s.disjoint_literals = sorted(
+        list(set(old.disjoint_literals)), key=lambda c: c.predicate)
+
+    s.update_sentence_string()
+
+    if len(s.disjoint_literals) > 0:
+        return s
+    else:
+        return None
+
+
+def update_kb(know_base, resultant_sentence):
+    # Update the knowledge base with new sentence
+    resultant_sentence = verify(resultant_sentence)
+
+    if not resultant_sentence:
+        return False
+    in_kb_flag = False
+    for s in know_base:
+        if str(s) == str(resultant_sentence):
+            in_kb_flag = True
+    # Avoid adding duplicates
+    if not in_kb_flag:
+        know_base.append(resultant_sentence)
+        return True
+    return False
 
 
 def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
+    iterations = last = progress_counter = 0
     # Negate query, convert to sentence, and add it to knowledge base
-    res_graph = ResolutionGraph()
     not_query = Sentence(query.copy().negate().update_lit_string())
     know_base = copy.deepcopy(k_base)
     know_base = [not_query] + know_base
 
-    tried_pairs = {}  # type: Dict[Tuple[str, str], bool]
+    tried_pairs: Dict[Tuple[str, str], bool] = {}
     t_index = 0
     s_index = 1
 
     while True:
+        iterations += 1
         # Maximum number of combinations we can possibly try
         saturated = len(know_base) * (len(know_base) - 1)
-        # print(s_index, t_index, len(tried_pairs), saturated, len(know_base))
         if len(tried_pairs) % 2 != 0:  # This shouldn't occur! Pairs are added... well... in pairs
-            sys.exit("[!] Invalid pair size!")  # TODO Remove before submitting!
+            raise ValueError("Invalid pair size!")
         if len(tried_pairs) >= saturated:
-            res_graph.view()
-            print("[!] Tried all combinations! Must be false")
+            print("[!] Tried all combinations! Query must be false.")
             return False
+
         try_resolve = True
         resolved_flag = False
 
         target_sentence = know_base[t_index]
         current_sentence = know_base[s_index]
-        # Can't unify variables, and we assume KB is already consistent
-        # no_const_flag = not target_sentence.contains_constant and not current_sentence.contains_constant
 
         # Check if we've alraedy tried this pair
         if s_index != t_index:
@@ -367,37 +474,35 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
                 for tar_lit in target_sentence.disjoint_literals:
                     if cur_lit.predicate == tar_lit.predicate and cur_lit.negated != tar_lit.negated:
 
-                        resultant_sentence, status = unify_and_resolve(
+                        result, status = unify_and_resolve(
                             current_sentence, target_sentence)
-                        if status:
+                        if status == UnifStatus.SUCCESS:
                             t_str = "[TARGET] " + str(target_sentence)
                             m_str = "[MATCH] " + str(current_sentence)
-                            r_str = "[RESULT] " + str(resultant_sentence)
+                            r_str = "[RESULT] " + str(result)
                             match_str = t_str + "\n" + m_str + "\n" + r_str + "\n\n"
 
                             # Used in case we want to write results to file
                             MATCHES.append(match_str)
-                            # print(match_str)
 
-                            if not resultant_sentence:  # Great success!
+                            if not result:  # Great success!
                                 print(
                                     "[!] Contradiction found! Query is consistent with knowledge base.")
-                                res_graph.add(
-                                    target_sentence, current_sentence, resultant_sentence)
-                                res_graph.view()
                                 return True
-                            # Update the knowledge base with new sentence
-                            in_kb_flag = False
-                            for s in know_base:
-                                if str(s) == str(resultant_sentence):
-                                    in_kb_flag = True
-                            # Avoid adding duplicates
-                            if not in_kb_flag:
-                                res_graph.add(
-                                    target_sentence, current_sentence, resultant_sentence)
-                                know_base.append(resultant_sentence)
-                                # input("...")
-                            # REVIEW Which works fastest?
+
+                            ResGraph.add(current_sentence,
+                                         target_sentence, result)
+                            updated = update_kb(know_base, result)
+
+                            if updated:
+                                progress_counter += 1
+                                diff = iterations - last
+                                last = iterations
+
+                                if diff >= CUTOFF:
+                                    print("[!] Infinite loop detected.")
+                                    return False
+
                             t_index = 0
                             s_index = 0
 
@@ -405,8 +510,21 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
                             know_base = sorted(
                                 know_base, key=lambda s:
                                 len(s.disjoint_literals))
-
                             break
+                        elif status == UnifStatus.MULTI:
+                            # Multiple sentences returned
+                            for r in result:
+                                update_kb(know_base, r)
+                                ResGraph.add(current_sentence,
+                                             target_sentence, r)
+                                t_index = 0
+                                s_index = 0
+
+                                breakout = True
+                                know_base = sorted(
+                                    know_base, key=lambda s:
+                                    len(s.disjoint_literals))
+
                 if breakout:
                     break
             if breakout:
@@ -424,8 +542,10 @@ def prove_by_resolution(k_base: List[Sentence], query: Literal) -> bool:
     return False
 
 
-def write_matches(ind=0):
-    with open("match_logs/matches%d_%d.txt" % (FILE_INDEX, ind), "w") as f:
+def write_matches(ind=1):
+    path = "match_logs/matches_input%dquery%d.txt" % (FILE_INDEX, ind)
+    print("[!] Saving match output to:", path)
+    with open(path, "w") as f:
         for k in k_base:
             f.write(str(k) + "\n")
         f.write(str(len(MATCHES)) + "\n")
@@ -434,47 +554,29 @@ def write_matches(ind=0):
 
 
 if __name__ == "__main__":
-    CASES = "cases/"
-    tests = range(1, 12)
-    # tests = [5]
-    for FILE_INDEX in tests:
+    CUTOFF = 100000
+    for FILE_INDEX in range(1, 12):
         print("======= INPUT " + str(FILE_INDEX) + " =========")
-        queries, k_base = parse_input(
-            CASES + "input" + str(FILE_INDEX) + ".txt")
+        queries, k_base = parse_input("cases/input%d.txt" % FILE_INDEX)
         print("[!] %d queries and %d sentences" % (len(queries), len(k_base)))
-
+        ResGraph = ResolutionGraph(FILE_INDEX)
         results = []
+
         ind = 0
         # Try each query
-        try:
-            for q in queries:
-                MATCHES = []  # type: List[str]
-                print("=>", q)
-                printk(k_base)
-                if prove_by_resolution(k_base, q):
-                    results.append("TRUE")
-                else:
-                    results.append("FALSE")
-                write_matches(ind + 1)
-                ind += 1
-        except KeyboardInterrupt:
+        for q in queries:
+            ind += 1
+            MATCHES: List[str] = []
+            print("=>", q)
+            printk(k_base)
+            if prove_by_resolution(k_base, q):
+                results.append("TRUE")
+            else:
+                results.append("FALSE")
             write_matches(ind)
-            print(results)
-            sys.exit()
-
-        # Compare results to expected values
-        with open(CASES + "output" + str(FILE_INDEX) + ".txt", "r") as f:
-            actual = f.read().split('\n')
-            for a in actual:
-                if not a:
-                    actual.remove(a)
-            assert(len(results) == len(actual))  # TODO Remove all asserts
-            print("========== INPUT " + str(FILE_INDEX) + " RESULTS ============")
-
-            for j in range(len(results)):
-                if actual[j] == results[j]:
-                    print(":)", end="")
-                else:
-                    print(":(", end="")
-                print("\tActual:", actual[j], "\tResult:", results[j])
-        # input("...")
+            ResGraph.save()
+            ResGraph = ResGraph.next_query()
+        # Output results
+        with open("output/output%d.txt" % FILE_INDEX, "w") as f:
+            for r in results:
+                f.write(r + "\n")
